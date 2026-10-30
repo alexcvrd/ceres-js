@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ceres — Plain JS</title><link rel="stylesheet" href="/examples/shared.css"></head>
+<body><div class="wrap">
+<h1>Ask Ceres — plain JavaScript</h1>
+<p class="sub">No framework: the library plus ~50 lines of page code. Follow-ups work ("And for maize?"); pick a persona to tell
+Ceres who is asking. <a href="/">all examples</a></p>
+<p><select id="persona"><option value="">no persona</option></select> <button type="button" id="new">New conversation</button>
+<span class="muted" id="conv"></span></p>
+<form id="f"><input id="q" type="text" placeholder="e.g. What is the optimal sowing density for sunflower?" required>
+<select id="lang"><option value="en">EN</option><option value="ro">RO</option></select><button type="submit" id="go">Ask</button></form>
+<div id="out"></div>
+</div>
+<script type="module">
+import { createCeresClient, CeresError, newConversationId } from "/src/ceres-client.js";
+
+const ceres = createCeresClient({ baseUrl: "/ceres" });           // the app backend's pass-through
+let conversationId = newConversationId();                         // one per chat; reused for every follow-up
+const persona = document.getElementById("persona"), conv = document.getElementById("conv");
+const showConv = () => { conv.textContent = `conversation ${conversationId.slice(0, 10)}…`; };
+showConv();
+ceres.profiles().then((ps) => ps.forEach((p) => persona.add(new Option(`${p.id} — ${p.summary.slice(0, 60)}…`, p.id)))).catch(() => {});
+let generation = 0, pending = null;                              // a reset/persona change cancels the question in flight
+const reset = () => {
+  generation++; pending?.abort(); pending = null;
+  document.getElementById("go").disabled = false;
+  conversationId = newConversationId(); showConv(); out.innerHTML = "";
+};
+document.getElementById("new").addEventListener("click", reset);
+persona.addEventListener("change", reset);                       // a conversation keeps one persona
+const out = document.getElementById("out");
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function mark(text, quote) {                                      // highlight the supporting quote in a passage
+  const i = quote ? text.indexOf(quote) : -1;
+  return i < 0 ? esc(text) : esc(text.slice(0, i)) + "<mark>" + esc(quote) + "</mark>" + esc(text.slice(i + quote.length));
+}
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const go = document.getElementById("go"); go.disabled = true;
+  const mine = generation, ctl = pending = new AbortController();
+  out.innerHTML = `<div class="card muted">Ceres is reading the library…</div>`;
+  try {
+    const r = await ceres.ask(document.getElementById("q").value, { lang: document.getElementById("lang").value, conversationId,
+                                                                    profileId: persona.value || undefined, signal: ctl.signal });
+    if (mine !== generation) return;                              // the conversation was reset meanwhile: drop the old reply
+    const cites = r.citations.map((c) => `<span class="cite">${c.number}</span>`).join("");
+    const passages = r.passages.filter((p) => p.cited).map((p) => {
+      const quote = r.citations.find((c) => c.evidenceId === p.evidenceId)?.quote;
+      return `<div class="passage"><span class="cite">${p.citationNumber}</span> <span class="src">${esc(p.sectionId)}</span><div>${mark(p.text, quote)}</div></div>`;
+    }).join("");
+    out.innerHTML = `<div class="card"><span class="tag ${r.answered ? "ok" : "no"}">${r.answered ? "ANSWER" : esc(r.decision + " · " + (r.reasonCode || ""))}</span>
+      ${r.memory && r.memory.isFollowup || (r.memory && r.memory.understoodAs !== r.question)
+        ? `<p class="muted">Understood as: ${esc(r.memory.understoodAs)}</p>` : ""}
+      <div>${esc(r.answer)}${cites}</div>${passages}
+      ${r.missingInformation.length ? `<p class="muted">Missing: ${r.missingInformation.map(esc).join("; ")}</p>` : ""}
+      <p class="muted">${(r.meta.latencyMs.total / 1000).toFixed(1)} s · ${esc(r.meta.releaseId || "")}${r.memory?.turn ? ` · turn ${r.memory.turn}` : ""}</p></div>`;
+  } catch (err) {
+    if (mine !== generation) return;
+    const msg = err instanceof CeresError ? `${err.kind}: ${err.message}${err.retryable ? " (try again)" : ""}` : String(err);
+    out.innerHTML = `<div class="card"><span class="tag err">ERROR</span><div>${esc(msg)}</div></div>`;
+  } finally { if (mine === generation) { go.disabled = false; pending = null; } }
+});
+</script>
+</body></html>

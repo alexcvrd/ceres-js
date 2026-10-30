@@ -1,0 +1,17 @@
+{
+  "name": "ceres-js",
+  "version": "0.3.0",
+  "description": "Drop-in JavaScript client for the Ceres agronomy RAG service (PoC)",
+  "type": "module",
+  "main": "src/ceres-client.js",
+  "exports": { ".": "./src/ceres-client.js" },
+  "files": ["src"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node proxy/node/server.mjs",
+    "demo:py": "python3 proxy/python/server.py"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

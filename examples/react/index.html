@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ceres — React</title><link rel="stylesheet" href="/examples/shared.css"></head>
+<body><div class="wrap" id="root"></div>
+<!-- React from a CDN with htm instead of JSX, so this demo needs no build step. In a real React app: npm install react, and the
+     same component with JSX (see AskCeres below). -->
+<script type="module">
+import React, { useMemo, useRef, useState } from "https://esm.sh/react@18.3.1";
+import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
+import htm from "https://esm.sh/htm@3.1.1";
+import { createCeresClient, CeresError } from "/src/ceres-client.js";
+const html = htm.bind(React.createElement);
+
+// A hook any React (or React Native) screen can use.
+function useCeres(baseUrl) {
+  const client = useMemo(() => createCeresClient({ baseUrl }), [baseUrl]);
+  const [state, setState] = useState({ status: "idle", reply: null, error: null });
+  const inFlight = useRef(null);
+  async function ask(question, lang) {
+    inFlight.current?.abort();                     // a new question cancels the previous one
+    const ctl = new AbortController(); inFlight.current = ctl;
+    setState({ status: "loading", reply: null, error: null });
+    try { setState({ status: "done", reply: await client.ask(question, { lang, signal: ctl.signal }), error: null }); }
+    catch (e) { if (!(e instanceof CeresError && e.kind === "aborted")) setState({ status: "error", reply: null, error: e }); }
+  }
+  return { ...state, ask };
+}
+
+function AskCeres() {
+  const { status, reply, error, ask } = useCeres("/ceres");
+  const [q, setQ] = useState(""); const [lang, setLang] = useState("en");
+  return html`
+    <h1>Ask Ceres — React</h1>
+    <p class="sub">A <code>useCeres</code> hook around the library. <a href="/">all examples</a></p>
+    <form onSubmit=${(e) => { e.preventDefault(); if (q.trim()) ask(q, lang); }}>
+      <input type="text" value=${q} onInput=${(e) => setQ(e.target.value)} placeholder="e.g. Care este densitatea optimă de semănat la floarea-soarelui?" />
+      <select value=${lang} onChange=${(e) => setLang(e.target.value)}><option value="en">EN</option><option value="ro">RO</option></select>
+      <button type="submit" disabled=${status === "loading"}>Ask</button>
+    </form>
+    ${status === "loading" && html`<div class="card muted">Ceres is reading the library…</div>`}
+    ${status === "error" && html`<div class="card"><span class="tag err">ERROR</span><div>${error.kind}: ${error.message}</div></div>`}
+    ${reply && html`<${Reply} reply=${reply} />`}`;
+}
+
+function Reply({ reply }) {
+  return html`<div class="card">
+    <span class=${"tag " + (reply.answered ? "ok" : "no")}>${reply.answered ? "ANSWER" : `${reply.decision} · ${reply.reasonCode}`}</span>
+    <div>${reply.answer}${reply.citations.map((c) => html`<span class="cite" key=${c.number + c.claim}>${c.number}</span>`)}</div>
+    ${reply.passages.filter((p) => p.cited).map((p) => html`<div class="passage" key=${p.evidenceId}>
+      <span class="cite">${p.citationNumber}</span> <span class="src">${p.sectionId}</span><div>${p.text}</div></div>`)}
+    ${reply.missingInformation.length > 0 && html`<p class="muted">Missing: ${reply.missingInformation.join("; ")}</p>`}
+    <p class="muted">${(reply.meta.latencyMs.total / 1000).toFixed(1)} s · ${reply.meta.releaseId}</p>
+  </div>`;
+}
+
+createRoot(document.getElementById("root")).render(html`<${AskCeres} />`);
+</script>
+</body></html>

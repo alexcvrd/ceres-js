@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ceres — Vue</title><link rel="stylesheet" href="/examples/shared.css"></head>
+<body><style>[v-cloak]{display:none}</style><div class="wrap" id="app" v-cloak>
+  <h1>Ask Ceres — Vue</h1>
+  <p class="sub">A <code>useCeres</code> composable around the library. <a href="/">all examples</a></p>
+  <form @submit.prevent="q.trim() && ask(q, lang)">
+    <input type="text" v-model="q" placeholder="e.g. How does nitrogen fertilization affect winter wheat yield?">
+    <select v-model="lang"><option value="en">EN</option><option value="ro">RO</option></select>
+    <button type="submit" :disabled="status === 'loading'">Ask</button>
+  </form>
+  <div class="card muted" v-if="status === 'loading'">Ceres is reading the library…</div>
+  <div class="card" v-if="status === 'error'"><span class="tag err">ERROR</span><div>{{ error.kind }}: {{ error.message }}</div></div>
+  <div class="card" v-if="reply">
+    <span :class="['tag', reply.answered ? 'ok' : 'no']">{{ reply.answered ? 'ANSWER' : reply.decision + ' · ' + reply.reasonCode }}</span>
+    <div>{{ reply.answer }}<span class="cite" v-for="c in reply.citations" :key="c.number + c.claim">{{ c.number }}</span></div>
+    <div class="passage" v-for="p in reply.passages.filter(p => p.cited)" :key="p.evidenceId">
+      <span class="cite">{{ p.citationNumber }}</span> <span class="src">{{ p.sectionId }}</span><div>{{ p.text }}</div></div>
+    <p class="muted" v-if="reply.missingInformation.length">Missing: {{ reply.missingInformation.join('; ') }}</p>
+    <p class="muted">{{ (reply.meta.latencyMs.total / 1000).toFixed(1) }} s · {{ reply.meta.releaseId }}</p>
+  </div>
+</div>
+<!-- Vue's browser build from a CDN, so this demo needs no build step. In a real Vue app: npm install vue, same composable. -->
+<script type="module">
+import { createApp, ref, shallowRef } from "https://unpkg.com/vue@3.4.38/dist/vue.esm-browser.prod.js";
+import { createCeresClient, CeresError } from "/src/ceres-client.js";
+
+function useCeres(baseUrl) {
+  const client = createCeresClient({ baseUrl });
+  const status = ref("idle"), reply = shallowRef(null), error = shallowRef(null);
+  let inFlight = null;
+  async function ask(question, lang) {
+    inFlight?.abort(); inFlight = new AbortController();
+    status.value = "loading"; reply.value = null; error.value = null;
+    try { reply.value = await client.ask(question, { lang, signal: inFlight.signal }); status.value = "done"; }
+    catch (e) { if (!(e instanceof CeresError && e.kind === "aborted")) { error.value = e; status.value = "error"; } }
+  }
+  return { status, reply, error, ask };
+}
+
+createApp({ setup() { return { q: ref(""), lang: ref("en"), ...useCeres("/ceres") }; } }).mount("#app");
+</script>
+</body></html>
