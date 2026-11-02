@@ -16,6 +16,9 @@
 //   * the discovery request goes out without the user's token                                     → "discovery sends the token"
 //   * an item that breaks an item rule is sent, or a valid one refused                           → "item rules: …"
 //   * values that JSON turns into something else (NaN → null) pass as numbers                    → "items must be JSON"
+//   * reading an item throws (a getter, a revoked Proxy) and the caller gets a plain Error      → "items that cannot be read"
+//   * 1900-02-29 passes as a date (leap year without the century rule)                          → "item rules: 1900-02-29"
+//   * a `decision` or `missing_information` of the wrong type reaches an app that renders it     → "reply shape: …"
 //   * the reply is trusted although it does not match what was sent                              → "reply checks: …"
 //   * numbering restarts per kind, or an app citation is looked up among passages                → "numbering across kinds"
 //   * a reply to a question without context is read as one with context, or the reverse           → "replies without submitted items"
@@ -643,6 +646,46 @@ test("items must be JSON: NaN, undefined, functions, dates, cycles and other non
   await accepts([JSON.parse('{"type":"parcel","id":"P","revision":"r","label":"l","data":{"__proto__":{"a":1},"crop":"maize"}}')], "a __proto__ key stays a key");
 });
 
+test("items that cannot be read: a getter that throws or a revoked Proxy is bad_request with the original as cause, from ask() and checkContextItems()", async () => {
+  // Bug caught: the error thrown while the items are copied escapes as the caller's own Error (not a CeresError), through both entry points.
+  const boom = new Error("getter boom");
+  const withGetter = (host) => { Object.defineProperty(host, "crop", { enumerable: true, get() { throw boom; } }); return host; };
+  const revoked = () => { const r = Proxy.revocable({}, {}); r.revoke(); return r.proxy; };
+  const revokedList = () => { const r = Proxy.revocable([], {}); r.revoke(); return r.proxy; };
+  const cases = {
+    "a getter in data": [{ ...parcel(), data: withGetter({}) }],
+    "a getter on the item": [withGetter({ ...parcel() })],
+    "a getter in an unknown value": [withData({ extra: withGetter({}) })],
+    "a getter in an array element": [withData({ extra: [withGetter({})] })],
+    "a revoked Proxy as the item": [revoked()],
+    "a revoked Proxy as a nested value": [withData({ extra: revoked() })],
+    "a revoked Proxy as the list": revokedList(),
+  };
+  for (const [why, items] of Object.entries(cases)) {
+    const fake = fakeCeres();
+    const viaAsk = await clientOn(fake).ask("q", { lang: "en", context: items }).catch((x) => x);
+    assert.ok(isError("bad_request")(viaAsk), `ask(): ${why}: ${viaAsk?.name} ${viaAsk?.message}`);
+    assert.ok(viaAsk.cause instanceof Error, `ask(): ${why}: the original error is the cause`);
+    assert.deepEqual(fake.calls, [], `${why}: nothing sent, not even discovery`);
+    let viaCheck;
+    try { checkContextItems(items); } catch (x) { viaCheck = x; }
+    assert.ok(isError("bad_request")(viaCheck), `checkContextItems(): ${why}: ${viaCheck?.name} ${viaCheck?.message}`);
+    assert.ok(viaCheck.cause instanceof Error, `checkContextItems(): ${why}: the original error is the cause`);
+  }
+  const fake = fakeCeres();
+  const e = await clientOn(fake).ask("q", { lang: "en", context: [{ ...parcel(), data: withGetter({}) }] }).catch((x) => x);
+  assert.equal(e.cause, boom, "the cause is the very error the item threw");
+});
+
+test("item rules: 1900-02-29 is not a date (a century is a leap year only when divisible by 400), 2000-02-29 and 2024-02-29 are", async () => {
+  // Bug caught: leap years without the century rule accept 1900-02-29 (and other non-dates) in sowingDate, harvestDate and observation dates.
+  await refusedAs([withData({ sowingDate: "1900-02-29" })], "sowingDate 1900-02-29");
+  await refusedAs([withData({ harvestDate: "2100-02-29" })], "harvestDate 2100-02-29");
+  await refusedAs([withData({ indices: { ndvi: [{ date: "1900-02-29", value: 0.4 }] } })], "observation date 1900-02-29");
+  await accepts([withData({ sowingDate: "2000-02-29" })], "2000-02-29");
+  await accepts([withData({ sowingDate: "2024-02-29" })], "2024-02-29");
+});
+
 // ---------------------------------------------------------------------------------------------------------------------------------
 // the reply (the golden files cover the common breaks; these cover the rest)
 
@@ -727,6 +770,63 @@ test("reply checks: a cited flag must agree with the citations, in both directio
   r = mixed(); delete r.meta.context.items[0].cited; bad(r, sent(), "cited missing");
   r = structuredClone(fx("resp-not-used")); r.meta.context.items[1].cited = true; bad(r, fx("req-two-parcels-full").context, "a not_used item cannot be cited");
   r = structuredClone(fx("resp-structure-failed")); r.meta.context.items[0].cited = true; bad(r, sent(), "no candidate, so nothing can be cited");
+});
+
+test("reply checks: a not_used entry that names evidence is bad_response, whichever id it names and with every other check satisfied", () => {
+  // Bug caught: the evidence id of a not_used entry is not looked at, so a reply that claims "not shown" and "evidence D1" passes.
+  const two = fx("req-two-parcels-full").context;
+  const raw = () => structuredClone(fx("resp-not-used"));
+  assert.doesNotThrow(() => normalizeReply(raw(), two));
+  const nu = (r) => r.meta.context.items.find((e) => e.status === "not_used");
+  let r = raw(); nu(r).evidence_id = "D9"; bad(r, two, "an id that is in neither list");
+  r = raw(); nu(r).evidence_id = r.meta.context.items.find((e) => e.status === "accepted").evidence_id; bad(r, two, "the id another, accepted entry names");
+  r = raw(); nu(r).evidence_id = ""; bad(r, two, "an empty id");
+});
+
+test("reply checks: a library citation without `kind` in a reply to a request with context is bad_response", () => {
+  // Bug caught: a missing kind is read as "library" although context was sent (it is only legacy-compatible when none was sent).
+  const r = mixed();
+  const i = r.answer.candidate.citations.findIndex((c) => c.kind === "library");
+  assert.ok(i >= 0);
+  delete r.answer.candidate.citations[i].kind;
+  bad(r, sent(), "library citation without kind");
+  assert.doesNotThrow(() => normalizeReply(structuredClone(fx("resp-legacy"))), "without submitted items a missing kind is still library");
+});
+
+test("reply shape: a decision that is not a string is bad_response, on every answer state that carries a candidate", () => {
+  // Bug caught: `decision` is checked only on VALIDATED answers, so a candidate on another state hands an app a number or an object to render.
+  for (const bogus of [5, null, {}, ["ANSWER"], true]) {
+    const v = structuredClone(fx("resp-legacy")); v.answer.candidate.decision = bogus;
+    assert.throws(() => normalizeReply(v), isError("bad_response"), `VALIDATED, decision ${JSON.stringify(bogus)}`);
+    const f = structuredClone(fx("resp-legacy")); f.answer.state = "STRUCTURE_FAILED"; f.answer.candidate.decision = bogus;
+    assert.throws(() => normalizeReply(f), isError("bad_response"), `STRUCTURE_FAILED, decision ${JSON.stringify(bogus)}`);
+  }
+  const ok = structuredClone(fx("resp-legacy")); ok.answer.state = "STRUCTURE_FAILED"; ok.answer.candidate.decision = "UNSUPPORTED";
+  assert.equal(normalizeReply(ok).decision, "UNSUPPORTED");
+});
+
+test("reply shape: missing_information that is not a list of strings is bad_response; absent or [] stays []", () => {
+  // Bug caught: a string, a list holding numbers or objects, or null is passed on as `missingInformation`, and an app that maps over it crashes.
+  const base = () => structuredClone(fx("resp-legacy"));
+  for (const bogus of ["nothing", 5, {}, null, [1], ["ok", null], [["nested"]], [{ text: "x" }]]) {
+    const r = base(); r.answer.candidate.missing_information = bogus;
+    assert.throws(() => normalizeReply(r), isError("bad_response"), JSON.stringify(bogus));
+    const c = mixed(); c.answer.candidate.missing_information = bogus;
+    assert.throws(() => normalizeReply(c, sent()), isError("bad_response"), `with context: ${JSON.stringify(bogus)}`);
+  }
+  const absent = base(); delete absent.answer.candidate.missing_information;
+  assert.deepEqual(normalizeReply(absent).missingInformation, []);
+  const empty = base(); empty.answer.candidate.missing_information = [];
+  assert.deepEqual(normalizeReply(empty).missingInformation, []);
+  const some = base(); some.answer.candidate.missing_information = ["a", "b"];
+  assert.deepEqual(normalizeReply(some).missingInformation, ["a", "b"]);
+});
+
+test("reply shape: a malformed reply is bad_response through ask() as well, with the raw reply as detail", async () => {
+  // Bug caught: the shape checks exist in normalizeReply() but ask() does not reach them.
+  const raw = structuredClone(fx("resp-legacy")); raw.answer.candidate.missing_information = "none";
+  const e = await clientOn(fakeCeres({ ask: () => json(200, raw) })).ask("q", { lang: "en" }).catch((x) => x);
+  assert.ok(isError("bad_response")(e)); assert.deepEqual(e.detail, raw);
 });
 
 test("reply checks: a reply that is bad in one place is bad_response through ask() as well, and the raw reply is kept as detail", async () => {

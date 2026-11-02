@@ -309,8 +309,10 @@ export function createCeresClient(options) {
       // The snapshot is taken here, before the first await: the request carries what the items were when ask() was called.
       let items;
       if (opts.context !== undefined) {
-        if (!Array.isArray(opts.context)) throw new CeresError("bad_request", "context must be an array of items (leave it out to attach nothing)");
-        items = snapshotItems(opts.context);
+        items = readItems(() => {
+          if (!Array.isArray(opts.context)) throw new CeresError("bad_request", "context must be an array of items (leave it out to attach nothing)");
+          return snapshotItems(opts.context);
+        });
         checkContext(items, null);   // the rules that need no capabilities
       }
       const payload = { question: q, lang: opts.lang, ...(opts.requestId != null ? { request_id: opts.requestId } : {}),
@@ -409,13 +411,25 @@ function parseCapabilities(info) {
  * @returns {ContextItem[]}
  */
 export function checkContextItems(items, capabilities = null) {
-  if (!Array.isArray(items)) throw new CeresError("bad_request", "context must be an array of items");
-  const copy = snapshotItems(items);
+  const copy = readItems(() => {
+    if (!Array.isArray(items)) throw new CeresError("bad_request", "context must be an array of items");
+    return snapshotItems(items);
+  });
   checkContext(copy, capabilities?.context ?? null);
   return copy;
 }
 
 const refuse = (path, why) => new CeresError("bad_request", `context${path}: ${why}`);
+
+/** Run a read of the caller's items. Whatever the items throw while being read (a throwing getter, a revoked Proxy) is a bad_request. */
+function readItems(read) {
+  try {
+    return read();
+  } catch (e) {
+    if (e instanceof CeresError) throw e;
+    throw new CeresError("bad_request", "context: the items could not be read (reading them threw an error)", { cause: e });
+  }
+}
 
 /** A deep copy of items made only of JSON values (finite numbers, plain objects and arrays); anything else is bad_request. */
 function snapshotItems(items) {
@@ -538,6 +552,9 @@ export function normalizeReply(raw, submitted) {
   if (given !== undefined && given !== null && !isObj(given)) throw bad("answer.candidate must be an object");
   if (isObj(given) && (!Array.isArray(given.citations) || !given.citations.every(isObj))) throw bad("answer.candidate.citations must be a list of objects");
   if (raw.answer.state === "VALIDATED" && typeof given.decision !== "string") throw bad("answer.candidate.decision is missing");
+  if (isObj(given) && given.decision !== undefined && typeof given.decision !== "string") throw bad("answer.candidate.decision must be a string");
+  if (isObj(given) && given.missing_information !== undefined && !(Array.isArray(given.missing_information) && given.missing_information.every((x) => typeof x === "string")))
+    throw bad("answer.candidate.missing_information must be a list of strings");
   const srcList = isObj(raw.meta) ? raw.meta.sources : undefined;
   if (srcList !== undefined && srcList !== null && (!Array.isArray(srcList) || !srcList.every(isObj))) throw bad("meta.sources must be a list of objects");
   if (submitted != null && (!Array.isArray(submitted) || !submitted.every(isObj))) throw new TypeError("normalizeReply: submitted must be an array of items");

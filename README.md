@@ -135,7 +135,8 @@ Every method accepts `{ signal }` (an `AbortSignal`) to cancel the request.
 | `opts.signal` | `AbortSignal` | Optional. Cancels the request, for example when the user leaves the screen. |
 
 The client checks all arguments before it sends anything. A bad argument throws a `CeresError` with kind `bad_request` or
-`too_long`.
+`too_long`. So does an item that cannot be read: a getter that throws or a revoked `Proxy` is `bad_request`, with the original error
+as `error.cause`. The same holds for `checkContextItems()`.
 
 ### Context items
 
@@ -235,6 +236,11 @@ all. Ceres states parcel facts only as supplied; it does not compute trends or "
 
 A question can get `decision: "CLARIFY"` (reason `MISSING_USER_OR_PARCEL_INFORMATION`): Ceres asks which attached item the question
 means, or for a fact the items lack. Show it to the user as a question, not as an error.
+
+**Reply shape.** `candidate.decision`, when present, must be a string, and `candidate.missing_information`, when present, must be a list
+of strings; anything else is `bad_response`, so `decision` and `missingInformation` are always safe to render. An absent
+`missing_information` is `[]`. Every recorded reply in `test/fixtures/` and `test/contract/` normalizes to the same result (or the same
+`bad_response`) under this check; `test/client.test.mjs` and `test/context.test.mjs` run them all.
 
 The client never judges whether a citation supports its claim. It checks that the reply answers what was sent, and a reply that does
 not is `bad_response`: `meta.context` missing (also when `[]` was sent); entries missing, extra, duplicated or reordered; an echoed
@@ -352,18 +358,19 @@ In a real app, React and Vue come from npm, not a CDN.
 npm test        # node --test test/*.test.mjs
 ```
 
-The suite has 134 tests (subtests included). It needs no internet access or external service, but it opens local sockets on `127.0.0.1`
+The suite has 144 tests (subtests included). It needs no internet access or external service, but it opens local sockets on `127.0.0.1`
 (loopback must be allowed):
 
 - `test/client.test.mjs` runs the client on recorded Ceres responses (an answer, a decline, a memory follow-up) and on fakes
   for every error kind, timeout, cancellation, `getToken`, citation numbering, memory fields and readable sources.
 - `test/context.test.mjs` drives the client through every request, reply and error in `test/contract/` with a fake `fetch`, and tests
   what those cases do not cover: the copy of the items taken at call time, discovery under the ask's deadline, the capability cache
-  and its drop after the legacy 422, the item rules and advertised limits, the reply checks, citation numbering and the error mapping.
+  and its drop after the legacy 422, the item rules and advertised limits, the reply checks and reply shape, items that cannot be read, citation numbering and the error mapping.
 - `test/contract/` holds the golden cases of context-v0 (requests, capability files, replies, errors, `EXCHANGES.json`
   and `INDEX.md`). They are generated elsewhere; do not edit them by hand.
 - `test/proxy-context.test.mjs` starts both proxies against a fake Ceres and checks that the body is forwarded byte for byte, the
-  65 536-byte cap (413 before the body is read, chunked bodies, 411 in the Python proxy), and the 502 and 504 bodies.
+  65 536-byte cap (413 before the body is read, chunked bodies counted to the byte, 411 in the Python proxy), and the 502 and 504 bodies
+  (including a connect timeout in the Python proxy).
 - `test/proxy.test.mjs` starts both proxies against a fake Ceres. It checks that the key is added and never returned, that
   only the four endpoints are forwarded, and that no file outside `examples/` and `src/` is served: `../` and `%2e%2e%2f`
   traversal, absolute paths, sibling directories such as `examples-secret/` and symlinks pointing outside all return 404.

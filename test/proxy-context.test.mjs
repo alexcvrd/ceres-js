@@ -5,6 +5,8 @@
 //   * the proxy reads a declared 1 MB body before saying no                                      → "an over-long Content-Length is refused before the body is read"
 //   * (node) a chunked body grows without bound, or is refused only after it was all read        → "chunked bodies"
 //   * (python) a chunked body is read without a bound                                             → "chunked bodies"
+//   * (node) the chunked cap is off by one: 65 536 bytes refused, or 65 537 forwarded            → "node proxy: a chunked body of exactly 65 536 bytes"
+//   * (python) a connect timeout (URLError wrapping a timeout) is 502, a read timeout is 504      → "python proxy: a connect timeout"
 //   * Ceres unreachable or too slow shows as a dropped connection or a text the client cannot map → "upstream failures"
 //   * the 502/504/413 bodies leak the key, or the client maps them to generic kinds                → "upstream failures", "ceres-js through the proxy"
 //   * Ceres's own 4xx/5xx (409, 422) is rewritten by the proxy                                      → "Ceres's own errors pass through unchanged"
@@ -209,6 +211,46 @@ for (const [name, cmd, args, port] of [["node", process.execPath, [`${REPO}/prox
     });
   });
 }
+
+test("node proxy: a chunked body of exactly 65 536 bytes is forwarded and 65 537 bytes is 413", async () => {
+  // Bug caught: the chunked cap is off by one (a body at the cap refused, or one byte over it forwarded).
+  const port = 18960;
+  await start(process.execPath, [`${REPO}/proxy/node/server.mjs`], port);
+  const chunk = (n) => `${n.toString(16)}\r\n${"a".repeat(n)}\r\n`;
+  const head = "POST /ceres/v1/ask HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n";
+  const before = received.length;
+  const atCap = await exchange(port, [head, chunk(32768), chunk(32768), "0\r\n\r\n"]);
+  assert.equal(status(atCap), 200, atCap);
+  assert.equal(received.length, before + 1);
+  assert.equal(received.at(-1).body.length, CAP, "Ceres received every byte");
+  const over = await exchange(port, [head, chunk(32768), chunk(32769), "0\r\n\r\n"]);
+  assert.equal(status(over), 413, over);
+  assert.deepEqual(bodyOf(over), { detail: "request body exceeds 65536 bytes" });
+  assert.equal(received.length, before + 1, "the over-long body never reaches Ceres");
+});
+
+test("python proxy: a connect timeout (URLError wrapping a timeout) is 504 upstream_timeout like a read timeout, and a refused connection stays 502", async () => {
+  // Bug caught: only a bare TimeoutError is read as a timeout, so a connect timeout (which urllib raises as URLError) is 502 and the
+  // client reports `network` instead of `timeout`. No offline connect can be made to time out reliably, so the proxy runs with
+  // urllib's urlopen replaced by one that raises what urllib raises; the handler and its error mapping are the real ones.
+  const launcher = [
+    "import runpy, sys, urllib.error, urllib.request",
+    "def fake_urlopen(req, timeout=None):",
+    "    body = req.data or b''",
+    "    if b'CONNECT_TIMEOUT' in body: raise urllib.error.URLError(TimeoutError('timed out'))",
+    "    if b'READ_TIMEOUT' in body: raise TimeoutError('timed out')",
+    "    raise urllib.error.URLError(ConnectionRefusedError(111, 'Connection refused'))",
+    "urllib.request.urlopen = fake_urlopen",
+    "runpy.run_path(sys.argv[1], run_name='__main__')",
+  ].join("\n");
+  const base = await start("python3", ["-c", launcher, `${REPO}/proxy/python/server.py`], 18970);
+  const ask = async (question) => { const r = await post(base, JSON.stringify({ question, lang: "en" })); return [r.status, await r.json()]; };
+  assert.deepEqual(await ask("CONNECT_TIMEOUT"), [504, { detail: "upstream_timeout" }]);
+  assert.deepEqual(await ask("READ_TIMEOUT"), [504, { detail: "upstream_timeout" }]);
+  assert.deepEqual(await ask("REFUSED"), [502, { detail: "upstream_unreachable" }]);
+  const c = createCeresClient({ baseUrl: `${base}/ceres` });
+  await assert.rejects(c.ask("CONNECT_TIMEOUT", { lang: "en" }), (e) => e instanceof CeresError && e.kind === "timeout" && e.retryable && e.status === 504);
+});
 
 test("the proxies behave the same: same status and body for the same bad requests", async () => {
   // Bug caught: the two samples drift apart (different status or detail for a missing route, an over-long body or a dead Ceres).
