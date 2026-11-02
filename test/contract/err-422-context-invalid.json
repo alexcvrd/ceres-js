@@ -1,0 +1,18 @@
+{
+ "detail": [
+  {
+   "type": "context_invalid",
+   "loc": [
+    "body",
+    "context",
+    0,
+    "data",
+    "indices",
+    "ndvi",
+    2,
+    "date"
+   ],
+   "msg": "series dates must be strictly increasing"
+  }
+ ]
+}

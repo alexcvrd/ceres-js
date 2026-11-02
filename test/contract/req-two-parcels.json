@@ -1,0 +1,60 @@
+{
+ "question": "Is this crop behind schedule?",
+ "lang": "en",
+ "request_id": "req-0002",
+ "context": [
+  {
+   "type": "parcel",
+   "id": "P-1042",
+   "revision": "2026-05-21T09:00:00Z",
+   "label": "Parcel 1042 · Ferma Dealu",
+   "data": {
+    "crop": "maize",
+    "season": 2026,
+    "areaHa": 12.4,
+    "region": "Teleorman",
+    "sowingDate": "2026-04-18",
+    "indices": {
+     "ndvi": [
+      {
+       "date": "2026-05-01",
+       "value": 0.41
+      },
+      {
+       "date": "2026-05-11",
+       "value": 0.52
+      },
+      {
+       "date": "2026-05-21",
+       "value": 0.58
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "parcel",
+   "id": "P-0877",
+   "revision": "2026-05-21T09:00:00Z",
+   "label": "Parcel 877 · Ferma Dealu",
+   "data": {
+    "crop": "sunflower",
+    "season": 2026,
+    "areaHa": 8.1,
+    "region": "Teleorman",
+    "indices": {
+     "ndvi": [
+      {
+       "date": "2026-05-11",
+       "value": 0.33
+      },
+      {
+       "date": "2026-05-21",
+       "value": 0.37
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "version": "0.3.0",
+ "route_id": "a6f94ada3ea20a0f2d11bd4a737dbd95cbc6a8ae3ff312ca93af9552261972bf",
+ "route_status": "assigned",
+ "judged_route_id": "73c2e7911d632ad5602bb72f869d5be81a920343fdca9c204fe2a7d7a6bf7315",
+ "features": [
+  "context-v0"
+ ],
+ "context": {
+  "types": [
+   "parcel"
+  ],
+  "indices": [
+   "ndvi",
+   "evi",
+   "ndmi",
+   "ndre"
+  ],
+  "limits": {
+   "max_items": 5,
+   "max_series": 4,
+   "max_points": 200,
+   "max_extra_keys": 50,
+   "max_extra_string_chars": 200
+  }
+ }
+}

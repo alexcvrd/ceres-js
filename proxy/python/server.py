@@ -5,6 +5,7 @@ and the library, so pages and API share one origin (no CORS). In a real app, the
 
     CERES_URL=http://127.0.0.1:8300 CERES_API_KEY_FILE=/path/to/ceres-api-key python3 proxy/python/server.py   (port 8321)
 """
+import http.client
 import json
 import mimetypes
 import os
@@ -17,6 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CERES_URL = os.environ.get("CERES_URL", "http://127.0.0.1:8300").rstrip("/")
 KEY = os.environ.get("CERES_API_KEY") or (Path(os.environ["CERES_API_KEY_FILE"]).read_text().strip() if os.environ.get("CERES_API_KEY_FILE") else "")
+MAX_BODY = 65536  # bytes of request body (the same cap as Ceres)
+UPSTREAM_TIMEOUT = float(os.environ.get("UPSTREAM_TIMEOUT_S", "300"))
 PORT = int(os.environ.get("PORT", "8321"))
 HOST = os.environ.get("HOST", "127.0.0.1")
 ALLOWED = {("GET", "/health"), ("GET", "/v1/info"), ("GET", "/v1/profiles"), ("POST", "/v1/ask")}
@@ -48,21 +51,38 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _fail(self, status: int, detail: str) -> None:
+        self._send(status, json.dumps({"detail": detail}).encode())
+
     def _pass_through(self, path: str) -> None:
         if (self.command, path) not in ALLOWED:
             return self._send(404, b"")
-        data = self.rfile.read(int(self.headers.get("Content-Length") or 0)) if self.command == "POST" else None
+        # The body cap is enforced on the declared length, before anything is read. A chunked body has no length to check, so it
+        # is refused rather than read without a bound.
+        if "Transfer-Encoding" in self.headers:
+            return self._fail(411, "chunked request bodies are not accepted; send a Content-Length")
+        declared = (self.headers.get("Content-Length") or "0").strip()
+        if not (declared.isascii() and declared.isdigit()):
+            return self._fail(400, "invalid Content-Length")
+        if int(declared) > MAX_BODY:
+            return self._fail(413, f"request body exceeds {MAX_BODY} bytes")
+        data = self.rfile.read(int(declared)) if self.command == "POST" else None
         headers = {"Content-Type": "application/json", **({"X-API-Key": KEY} if KEY else {})}
         # This sample does not authenticate users. A real backend must verify the user's session or token here
         # (self.headers["Authorization"]) before forwarding.
         req = urllib.request.Request(CERES_URL + path, data=data, headers=headers, method=self.command)
         try:
-            with urllib.request.urlopen(req, timeout=300) as r:
-                self._send(r.status, r.read(), r.headers.get("Content-Type", "application/json"))
-        except urllib.error.HTTPError as e:
-            self._send(e.code, e.read(), e.headers.get("Content-Type", "application/json"))
-        except (urllib.error.URLError, OSError):
-            self._send(502, json.dumps({"detail": "Ceres is not reachable"}).encode())
+            try:
+                with urllib.request.urlopen(req, timeout=UPSTREAM_TIMEOUT) as r:
+                    status, body, ctype = r.status, r.read(), r.headers.get("Content-Type", "application/json")
+            except urllib.error.HTTPError as e:
+                status, body, ctype = e.code, e.read(), e.headers.get("Content-Type", "application/json")
+        except (TimeoutError, urllib.error.URLError, http.client.HTTPException, OSError) as e:
+            timed_out = isinstance(e, TimeoutError) or (isinstance(e, urllib.error.URLError) and isinstance(e.reason, TimeoutError))
+            if timed_out:
+                return self._fail(504, "upstream_timeout")  # gave up waiting for Ceres
+            return self._fail(502, "upstream_unreachable")  # could not reach Ceres, or it hung up
+        self._send(status, body, ctype)
 
     def _file(self, path: str) -> None:
         target = resolve_served(path)

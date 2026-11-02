@@ -17,6 +17,8 @@ const CERES_URL = (process.env.CERES_URL || "http://127.0.0.1:8300").replace(/\/
 const KEY = process.env.CERES_API_KEY || (process.env.CERES_API_KEY_FILE ? readFileSync(process.env.CERES_API_KEY_FILE, "utf8").trim() : "");
 const PORT = Number(process.env.PORT || 8320);
 const HOST = process.env.HOST || "127.0.0.1";
+const MAX_BODY = 65536;           // bytes of request body, counted as received (the same cap as Ceres)
+const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_S || 300) * 1000;
 const ALLOWED = new Set(["GET /health", "GET /v1/info", "GET /v1/profiles", "POST /v1/ask"]);
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".json": "application/json" };
@@ -31,19 +33,32 @@ function fail(res, status, detail) {
 
 async function passThrough(req, res, path) {
   if (!ALLOWED.has(`${req.method} ${path}`)) { res.writeHead(404).end(); return; }
+  const tooLong = () => fail(res, 413, `request body exceeds ${MAX_BODY} bytes`);
+  // A body over the cap is refused without being kept: by its declared length at once, or when the bytes received pass the cap
+  // (chunked bodies). The rest of such a body is read and thrown away so the 413 reaches the client.
+  if (Number(req.headers["content-length"]) > MAX_BODY) { tooLong(); return; }
   const chunks = [];
-  try { for await (const c of req) chunks.push(c); }
-  catch { fail(res, 400, "The request body could not be read"); return; }      // the client disconnected or sent a broken body
+  let size = 0, over = false;
+  try {
+    for await (const c of req) {
+      if (over) continue;
+      size += c.length;
+      if (size > MAX_BODY) { over = true; chunks.length = 0; tooLong(); } else chunks.push(c);
+    }
+  } catch { fail(res, 400, "The request body could not be read"); return; }      // the client disconnected or sent a broken body
+  if (over) return;
   const headers = { "Content-Type": "application/json", ...(KEY ? { "X-API-Key": KEY } : {}) };
   // This sample does not authenticate users. A real backend must verify the user's session or token here
   // (req.headers.authorization) before forwarding.
   try {
-    const r = await fetch(CERES_URL + path, { method: req.method, headers, body: req.method === "POST" ? Buffer.concat(chunks) : undefined });
+    const r = await fetch(CERES_URL + path, { method: req.method, headers, body: req.method === "POST" ? Buffer.concat(chunks) : undefined,
+                                             signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
     const body = Buffer.from(await r.arrayBuffer());
     res.writeHead(r.status, { "Content-Type": r.headers.get("content-type") || "application/json" });
     res.end(body);
-  } catch {
-    fail(res, 502, "Ceres is not reachable");
+  } catch (err) {
+    if (err?.name === "TimeoutError") fail(res, 504, "upstream_timeout");       // gave up waiting for Ceres
+    else fail(res, 502, "upstream_unreachable");                                 // could not reach Ceres, or it hung up
   }
 }
 

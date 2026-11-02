@@ -1,0 +1,134 @@
+{
+ "packet": {
+  "packet_id": "grounded-4627c286d32e6fb2d5e29a6d8c0842290600be6fd25990d24f979264653925af",
+  "question_id": "4627c286d32e6fb2d5e29a6d8c0842290600be6fd25990d24f979264653925af",
+  "question": "Is the maize on this parcel developing normally after the wet May?",
+  "language": "en",
+  "contexts": [
+   {
+    "evidence_id": "E1",
+    "chunk_id": "b66b1e0294e1f280ba6c9523181497af9655820a6c11d33956de99fd6ac13ae8",
+    "parent_id": "mars-europe-2013-06-vol21-no6:page-0014",
+    "evidence_text": "Hungary\nSubstantial rainfall stimulated crop growth and development\nHungary experienced frequent and abundant rainfall in May,\nkeeping the soil moisture content at optimal level. Considering\nthe whole period of review since the 1st of May, temperature\nsums were close to the average, but this was the result of\nsubsequent warm and cold spells. The current status and\nbiomass accumulation of winter crops is promising. The\ndevelopment of spring and summer crops is delayed due to\nlate sowing and relatively cool weather.\nIn the first two dekads of May, daily temperatures were\nmostly higher than the long-term average, but after 20 May\nweather conditions became colder than usual. The active\ntemperature sum (Tbase=0°C) indicates a slight deficit (2050 GDD) in western Hungary while near seasonal values were\nexperienced in the eastern regions.\nRainfall was plentiful and evenly distributed during the whole\nperiod. Precipitation had considerable spatial variability, but\ncumulated rainfall reached or exceeded the average across\nthe region. The continuously moist weather created favourable\nconditions for plant pests and disease.\nDuring the first 20 days of May, weather conditions were\npositive to completing the belated sowing of sunflower and\nmaize, and to the quick emergence and early growth of spring\ncrops. The development of winter crops was also accelerated\nand these reached the normal phenological stage for mid-",
+    "evidence_text_sha256": "62c970a8fa8cdfd30300e2a542027890a16edafe6f883d7e878ff5792438a22f",
+    "locator_ids": [
+     "5e2056f626d4e9bd3c2f02709c071f92dfcbccd3d4fb3bb94fee3b8311087ed3"
+    ],
+    "lineage_ids": [
+     "d4cabe08c0ca160137f6943a79dd90976ddf2d6a2cf1940987b5130480ecea1b",
+     "d4cabe08c0ca160137f6943a79dd90976ddf2d6a2cf1940987b5130480ecea1b",
+     "d4cabe08c0ca160137f6943a79dd90976ddf2d6a2cf1940987b5130480ecea1b"
+    ],
+    "warnings": []
+   },
+   {
+    "evidence_id": "E2",
+    "chunk_id": "af6850440f94409ef1b218801027cbb4add917f3a35a6180a17f117e830d10b0",
+    "parent_id": "mars-europe-2013-06-vol21-no6-section-0001",
+    "evidence_text": "The most prominent weather feature during the period of review was\nthe many high rainfall events in central Europe, which led to vast\nflooding in the vicinity of the rivers affected and increased the soil\nmoisture content to critical levels, increasing the risk of pests and\nconstraining plant development.\nOn balance, at the EU-27 level, the forecast for soft wheat\nremained practically unaltered and close to the five-year average,",
+    "evidence_text_sha256": "322afedbd9d516481579341e41f3aa19689ad3b54eb0494d6764b4e03a0aff1e",
+    "locator_ids": [
+     "26e835b65ffe04052a5f4a8ffb34a9db459298983722ca5b598b5ae2dcb70987",
+     "60f083b84dea12bea70f64ed0c10f5f22e9ac1625759a1d3cfefc06a6a64f4c5",
+     "440ba8979844682bccbf9c83f1bcc244b89cd140beff8e61bc8d8f74315ddd71"
+    ],
+    "lineage_ids": [
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0",
+     "d6e05f6a7971feca4c40c8b710e53aab5ecc27844f8cc8fe835e9ea01f0490a0"
+    ],
+    "warnings": [
+     "unmatched_locator"
+    ]
+   }
+  ],
+  "app_evidence": [
+   {
+    "evidence_id": "D1",
+    "kind": "app",
+    "item": {
+     "type": "parcel",
+     "id": "P-1042",
+     "revision": "2026-05-21T09:00:00Z",
+     "label": "Parcel 1042 · Ferma Dealu"
+    },
+    "evidence_text": "Parcel P-1042 (revision 2026-05-21T09:00:00Z)\nCrop: maize\nSeason: 2026\nArea: 12.4 ha\nRegion: Teleorman\nSowing date: 2026-04-18\nNDVI on 2026-05-01: 0.41\nNDVI on 2026-05-11: 0.52\nNDVI on 2026-05-21: 0.58",
+    "renderer": "parcel-text-v1",
+    "evidence_text_sha256": "1358f089c7e379aa04ca44f39cab90c4d3faee6a6ba11fa59e95dcea6187f260"
+   }
+  ]
+ },
+ "answer": {
+  "question_id": "4627c286d32e6fb2d5e29a6d8c0842290600be6fd25990d24f979264653925af",
+  "state": "STRUCTURE_FAILED",
+  "attempts": 1
+ },
+ "meta": {
+  "execution_id": "0004d8fd6101408baf5f7299f82107c0",
+  "request_id": "req-0001",
+  "release_attempt_id": "all/release-attempt-0001",
+  "release_manifest_sha256": "62a472bc7c4eae1a5103696de724b21c76a4318dc1c8b5768d0dc8232cd6f673",
+  "route_id": "a6f94ada3ea20a0f2d11bd4a737dbd95cbc6a8ae3ff312ca93af9552261972bf",
+  "route_status": "assigned",
+  "judged_route_id": "73c2e7911d632ad5602bb72f869d5be81a920343fdca9c204fe2a7d7a6bf7315",
+  "serving_mode": "rnd",
+  "read_predicate_sha256": "680a7d431df85573ed4856c06216b3f19e94e6c3eb815d2bbaa982018d1d0c42",
+  "model_reported": "qwen38",
+  "lang_source": "client",
+  "membership_counts": {
+   "sealed_holdout": 120,
+   "train_eligible": 960,
+   "development_holdout": 180
+  },
+  "filtered": {
+   "rights": 0,
+   "excluded": 0
+  },
+  "latency_ms": {
+   "embed": 225.777,
+   "retrieve": 2871.382,
+   "rerank": 1066.636,
+   "answer": 5784.744,
+   "total": 9951.298
+  },
+  "validator_revision": "ceres-validate-r3",
+  "citation_marks": [],
+  "quote_spans": [],
+  "citation_mode": "soft",
+  "rerank": {
+   "status": "ok",
+   "profile_id": "qwen3-0.6b-rerank-v3",
+   "model": "Qwen/Qwen3-Reranker-0.6B",
+   "revision": "e61197ed45024b0ed8a2d74b80b4d909f1255473",
+   "issue_boost": {
+    "target": null,
+    "boosted_count": 0
+   },
+   "rerank_ms": 1066.626
+  },
+  "issue_boost": {
+   "target": null,
+   "boosted_count": 0
+  },
+  "strict_errors": [],
+  "dropped_citations": [],
+  "context": {
+   "items": [
+    {
+     "type": "parcel",
+     "id": "P-1042",
+     "revision": "2026-05-21T09:00:00Z",
+     "status": "accepted",
+     "evidence_id": "D1",
+     "cited": false,
+     "ignored": []
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,123 @@
+[
+ {
+  "response": "resp-mixed",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-accepted-uncited",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-unknown-keys",
+  "request": "req-unknown-keys",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-not-used",
+  "request": "req-two-parcels-full",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-clarify",
+  "request": "req-two-parcels",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-empty-context",
+  "request": "req-empty-context",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-structure-failed",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-bad-ack-missing",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-bad-ack-revision",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-bad-evidence-item",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-bad-dangling",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-bad-kind",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "resp-legacy",
+  "request": "req-legacy",
+  "info": "info-legacy",
+  "status": 200,
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "err-422-legacy-context",
+  "request": "req-one-parcel",
+  "info": "info-context-v0",
+  "status": 422,
+  "surface": "ceres-js with a stale cache from info-context-v0"
+ },
+ {
+  "response": "err-422-context-invalid",
+  "request": "req-bad-unsorted-series",
+  "info": "info-context-v0",
+  "status": 422,
+  "surface": "raw (ceres-js refuses before sending)"
+ },
+ {
+  "response": "err-409-request-conflict",
+  "request": "req-replay-changed",
+  "info": "info-context-v0",
+  "status": 409,
+  "after": "req-replay-first",
+  "surface": "raw and ceres-js"
+ },
+ {
+  "response": "err-409-revision-conflict",
+  "request": "req-revision-changed",
+  "info": "info-context-v0",
+  "status": 409,
+  "after": "req-revision-first",
+  "surface": "raw and ceres-js"
+ }
+]
