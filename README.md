@@ -375,7 +375,3 @@ The test data quotes passages, tables or page text from 5 public JRC MARS Bullet
 ## License
 
 Proprietary. See LICENSE.
-
-## Development process
-
-Development process: docs/DEVELOPMENT.md
